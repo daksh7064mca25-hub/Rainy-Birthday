@@ -107,7 +107,7 @@ export default function HeartLetters({ title, subtitle, letter, voiceNote }: Hea
         <audio
           ref={audioRef}
           src={voiceNote.audioUrl}
-          preload="metadata"
+          preload="none"
           onTimeUpdate={() => {
             if (audioRef.current) {
               setCurrentSeconds(Math.floor(audioRef.current.currentTime));

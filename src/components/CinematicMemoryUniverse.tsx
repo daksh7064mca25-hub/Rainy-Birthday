@@ -811,7 +811,7 @@ function getAspectClass(mem: MemoryItem, idx: number): string {
   return pattern[idx % pattern.length];
 }
 
-function CollageTile({
+const CollageTile = React.memo(function CollageTile({
   memory,
   index,
   shouldReduceMotion,
@@ -883,13 +883,14 @@ function CollageTile({
               src={posterUrl}
               alt={memory.title}
               loading="lazy"
+              decoding="async"
               onError={onError}
               className="collage-tile-media"
             />
           ) : videoUrl ? (
             <video
               src={`${videoUrl}#t=0.5`}
-              preload="metadata"
+              preload="none"
               muted
               playsInline
               onError={onError}
@@ -930,6 +931,7 @@ function CollageTile({
           src={memory.imageUrl}
           alt={memory.title}
           loading="lazy"
+          decoding="async"
           onError={onError}
           className="collage-tile-media"
         />
@@ -953,4 +955,4 @@ function CollageTile({
       </div>
     </motion.div>
   );
-}
+});

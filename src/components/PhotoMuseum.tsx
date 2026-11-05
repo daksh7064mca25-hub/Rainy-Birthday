@@ -179,6 +179,7 @@ export default function PhotoMuseum({ title, subtitle, memories }: PhotoMuseumPr
                         src={poster}
                         alt={memory.title}
                         loading="lazy"
+                        decoding="async"
                         style={{
                           width: '100%',
                           height: '100%',
@@ -189,7 +190,7 @@ export default function PhotoMuseum({ title, subtitle, memories }: PhotoMuseumPr
                     ) : videoSrc ? (
                       <video
                         src={`${videoSrc}#t=0.5`}
-                        preload="metadata"
+                        preload="none"
                         muted
                         playsInline
                         style={{
@@ -250,6 +251,7 @@ export default function PhotoMuseum({ title, subtitle, memories }: PhotoMuseumPr
                     src={memory.imageUrl}
                     alt={memory.title}
                     loading="lazy"
+                    decoding="async"
                     style={{
                       width: '100%',
                       height: '100%',

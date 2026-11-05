@@ -5,6 +5,44 @@ import path from 'path';
 export const dynamic = 'force-dynamic';
 
 function getMimeType(filePath: string, buffer?: Buffer): string {
+  // If buffer is available or we read first bytes, check magic bytes first
+  if (buffer && buffer.length >= 4) {
+    // MP3 with ID3 header: 0x49 0x44 0x33 ('ID3')
+    if (buffer[0] === 0x49 && buffer[1] === 0x44 && buffer[2] === 0x33) {
+      return 'audio/mpeg';
+    }
+    // MP3 frame sync: 0xFF followed by 0xFB, 0xF3, or 0xF2
+    if (buffer[0] === 0xff && (buffer[1] === 0xfb || buffer[1] === 0xf3 || buffer[1] === 0xf2)) {
+      return 'audio/mpeg';
+    }
+    // JPEG: 0xFF 0xD8 0xFF
+    if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+      return 'image/jpeg';
+    }
+    // PNG: 0x89 'PNG'
+    if (
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47
+    ) {
+      return 'image/png';
+    }
+    // WebP / RIFF: 0x52 0x49 0x46 0x46 ('RIFF')
+    if (
+      buffer[0] === 0x52 &&
+      buffer[1] === 0x49 &&
+      buffer[2] === 0x46 &&
+      buffer[3] === 0x46
+    ) {
+      return 'image/webp';
+    }
+    // MP4: ftyp in bytes 4..7
+    if (buffer.length >= 8 && buffer[4] === 0x66 && buffer[5] === 0x74 && buffer[6] === 0x79 && buffer[7] === 0x70) {
+      return 'video/mp4';
+    }
+  }
+
   const ext = path.extname(filePath).toLowerCase();
   if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
   if (ext === '.png') return 'image/png';
@@ -18,30 +56,19 @@ function getMimeType(filePath: string, buffer?: Buffer): string {
   if (ext === '.mp3') return 'audio/mpeg';
   if (ext === '.wav') return 'audio/wav';
 
-  // Check magic bytes if buffer is available
-  if (buffer && buffer.length >= 4) {
-    if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
-      return 'image/jpeg';
-    }
-    if (
-      buffer[0] === 0x89 &&
-      buffer[1] === 0x50 &&
-      buffer[2] === 0x4e &&
-      buffer[3] === 0x47
-    ) {
-      return 'image/png';
-    }
-    if (
-      buffer[0] === 0x52 &&
-      buffer[1] === 0x49 &&
-      buffer[2] === 0x46 &&
-      buffer[3] === 0x46
-    ) {
-      return 'image/webp';
-    }
-  }
-
   return 'image/jpeg';
+}
+
+function sniffFileMime(filePath: string): string {
+  try {
+    const fd = fs.openSync(filePath, 'r');
+    const header = Buffer.alloc(16);
+    fs.readSync(fd, header, 0, 16, 0);
+    fs.closeSync(fd);
+    return getMimeType(filePath, header);
+  } catch {
+    return getMimeType(filePath);
+  }
 }
 
 function serveFileResponse(filePath: string, mime: string, req: NextRequest) {
@@ -102,11 +129,24 @@ export async function GET(
 
     // 1. Direct match
     if (fs.existsSync(targetFile) && fs.statSync(targetFile).isFile()) {
-      let mime = getMimeType(targetFile);
+      const mime = sniffFileMime(targetFile);
 
-      // If it's a raw HEIC file, check if a converted .jpg exists alongside it
+      // Check if client supports WebP and an optimized .webp version exists
+      const acceptsWebP = req.headers.get('accept')?.includes('image/webp');
+      if (acceptsWebP && (mime === 'image/jpeg' || mime === 'image/png')) {
+        const webpAlternative = targetFile.replace(/\.(jpg|jpeg|png)$/i, '.webp');
+        if (fs.existsSync(webpAlternative)) {
+          return serveFileResponse(webpAlternative, 'image/webp', req);
+        }
+      }
+
+      // If it's a raw HEIC file, check if a converted .jpg or .webp exists alongside it
       if (mime === 'image/heic') {
         const baseName = safePath.replace(/\.(heic|heif)$/i, '');
+        const convertedWebp = path.join(uploadsDir, `${baseName}.webp`);
+        if (acceptsWebP && fs.existsSync(convertedWebp)) {
+          return serveFileResponse(convertedWebp, 'image/webp', req);
+        }
         const convertedJpg = path.join(uploadsDir, `${baseName}.jpg`);
         if (fs.existsSync(convertedJpg)) {
           return serveFileResponse(convertedJpg, 'image/jpeg', req);

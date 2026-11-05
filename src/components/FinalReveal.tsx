@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { motion, AnimatePresence, useInView } from 'framer-motion';
 import { MemoryItem } from '@/types/content';
 import { Play, Pause, RotateCcw, FastForward, Heart, Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -27,14 +27,19 @@ export default function FinalReveal({
   recipientName,
   partnerName,
 }: FinalRevealProps) {
-  const publishedMemories = memories.filter((m) => m.published !== false);
+  const sectionRef = useRef<HTMLElement>(null);
+  const isInView = useInView(sectionRef, { margin: '100px 0px 100px 0px' });
+  const publishedMemories = useMemo(
+    () => memories.filter((m) => m.published !== false),
+    [memories]
+  );
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
 
-  // Auto advance slides during montage if playing and not completed
+  // Auto advance slides during montage ONLY when section is visible in viewport
   useEffect(() => {
-    if (!isPlaying || isCompleted || publishedMemories.length === 0) return;
+    if (!isInView || !isPlaying || isCompleted || publishedMemories.length === 0) return;
 
     const interval = setInterval(() => {
       setCurrentIndex((prev) => {
@@ -48,7 +53,7 @@ export default function FinalReveal({
     }, 3800);
 
     return () => clearInterval(interval);
-  }, [isPlaying, isCompleted, publishedMemories.length]);
+  }, [isInView, isPlaying, isCompleted, publishedMemories.length]);
 
   const triggerConfetti = () => {
     try {
@@ -77,7 +82,7 @@ export default function FinalReveal({
   const currentMemory = publishedMemories[currentIndex] || publishedMemories[0];
 
   return (
-    <section id="final-reveal" className="mobile-section" style={{ paddingBottom: '80px' }}>
+    <section ref={sectionRef} id="final-reveal" className="mobile-section" style={{ paddingBottom: '80px' }}>
       {/* Chapter Title */}
       <div style={{ textAlign: 'center', marginBottom: '28px' }}>
         <span

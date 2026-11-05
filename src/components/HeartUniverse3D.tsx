@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { MemoryItem } from '@/types/content';
 import { Sparkles, Heart, Compass, Star } from 'lucide-react';
@@ -26,8 +26,11 @@ export default function HeartUniverse3D({
   const [webGLSupported, setWebGLSupported] = useState<boolean>(true);
   const [activeNodeIndex, setActiveNodeIndex] = useState<number | null>(null);
 
-  // Filter to published memories
-  const publishedMemories = memories.filter((m) => m.published !== false);
+  // Memoize published memories to prevent unnecessary Three.js scene recreations
+  const publishedMemories = useMemo(
+    () => memories.filter((m) => m.published !== false),
+    [memories]
+  );
 
   // Keep refs for dynamic modal open state and callbacks in animation/event loop
   const isModalOpenRef = useRef(isModalOpen);
@@ -79,7 +82,8 @@ export default function HeartUniverse3D({
       powerPreference: 'high-performance',
     });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // Optimized pixel ratio: cap to 1.5 on portrait/mobile to avoid GPU fill-rate exhaustion
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isPortrait ? 1.5 : 2));
     container.appendChild(renderer.domElement);
 
     // Group for entire universe rotation
@@ -333,12 +337,18 @@ export default function HeartUniverse3D({
     renderer.domElement.addEventListener('click', onClick);
     renderer.domElement.addEventListener('mousemove', onMouseMove);
 
-    // Animation Loop
-    let animId: number;
+    // Animation Loop with Viewport Visibility Observer (saves GPU & battery off-screen)
+    let animId: number = 0;
     let clock = new THREE.Clock();
     let currentRotationSpeed = 0.12;
+    let isSceneVisible = true;
 
     const animate = () => {
+      if (!isSceneVisible || document.hidden) {
+        animId = 0;
+        return;
+      }
+
       animId = requestAnimationFrame(animate);
 
       const delta = clock.getDelta();
@@ -379,6 +389,35 @@ export default function HeartUniverse3D({
       renderer.render(scene, camera);
     };
 
+    // IntersectionObserver to pause WebGL rendering loop when scrolled off-screen
+    const viewportObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          isSceneVisible = entry.isIntersecting;
+          if (isSceneVisible && !animId && !document.hidden) {
+            clock.start();
+            animate();
+          } else if (!isSceneVisible && animId) {
+            cancelAnimationFrame(animId);
+            animId = 0;
+          }
+        });
+      },
+      { threshold: 0.05 }
+    );
+    viewportObserver.observe(container);
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden && isSceneVisible && !animId) {
+        clock.start();
+        animate();
+      } else if (document.hidden && animId) {
+        cancelAnimationFrame(animId);
+        animId = 0;
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     animate();
 
     const handleResize = () => {
@@ -396,7 +435,9 @@ export default function HeartUniverse3D({
     window.addEventListener('resize', handleResize);
 
     return () => {
-      cancelAnimationFrame(animId);
+      viewportObserver.disconnect();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (animId) cancelAnimationFrame(animId);
       window.removeEventListener('resize', handleResize);
       if (renderer.domElement) {
         renderer.domElement.removeEventListener('pointerdown', onPointerDown);

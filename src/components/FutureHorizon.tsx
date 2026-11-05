@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { motion, useReducedMotion, useInView } from 'framer-motion';
 import { Sparkles, Heart } from 'lucide-react';
 import { FutureMilestone } from '@/types/content';
 
@@ -75,26 +75,30 @@ export default function FutureHorizon({
 }: FutureHorizonProps) {
   const shouldReduceMotion = useReducedMotion();
   const [mounted, setMounted] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
+  const isInView = useInView(sectionRef, { margin: '200px 0px 200px 0px' });
 
   const startDateTime = useMemo(() => parseStartDate(startDate), [startDate]);
 
   // Initialize with null on SSR to guarantee identical client hydration HTML
   const [elapsed, setElapsed] = useState<TimeElapsed | null>(null);
 
-  // Live timer interval updating every second after client hydration
+  // Live timer interval updating every second ONLY when section is visible
   useEffect(() => {
-    setElapsed(computeTimeElapsed(startDateTime));
     setMounted(true);
+    if (!isInView) return;
 
+    setElapsed(computeTimeElapsed(startDateTime));
     const intervalId = setInterval(() => {
       setElapsed(computeTimeElapsed(startDateTime));
     }, 1000);
 
     return () => clearInterval(intervalId);
-  }, [startDateTime]);
+  }, [isInView, startDateTime]);
 
   return (
     <section
+      ref={sectionRef}
       id="future"
       className="mobile-section"
       style={{

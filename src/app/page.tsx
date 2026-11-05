@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import { SiteContent, MemoryItem } from '@/types/content';
 import defaultContent from '@/data/content.json';
 import CinematicOpening from '@/components/CinematicOpening';
@@ -14,30 +13,8 @@ import FinalReveal from '@/components/FinalReveal';
 import ChapterNavigation from '@/components/ChapterNavigation';
 import CosmicParticles from '@/components/CosmicParticles';
 import MemoryPhotoReveal from '@/components/MemoryPhotoReveal';
-import { Compass, Sparkles, Heart, Lock } from 'lucide-react';
+import { Sparkles, Heart, Lock } from 'lucide-react';
 import Link from 'next/link';
-
-// Dynamically import 3D Universe to ensure smooth SSR and zero blocking
-const HeartUniverse3D = dynamic(() => import('@/components/HeartUniverse3D'), {
-  ssr: false,
-  loading: () => (
-    <div
-      style={{
-        width: '100%',
-        height: '400px',
-        borderRadius: '24px',
-        background: 'radial-gradient(circle at 50% 50%, #200717 0%, #0c0d18 70%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <div className="animate-pulse-glow" style={{ color: 'var(--color-gold)' }}>
-        <Sparkles size={32} />
-      </div>
-    </div>
-  ),
-});
 
 export default function HomePage() {
   const [content, setContent] = useState<SiteContent>(defaultContent as unknown as SiteContent);

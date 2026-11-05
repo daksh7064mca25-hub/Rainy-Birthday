@@ -57,7 +57,7 @@ export default function CinematicOpening({
           position: 'absolute',
           top: '15%',
           left: '50%',
-          transform: 'translateX(-50%)',
+          transform: 'translateX(-50%) translateZ(0)',
           width: '320px',
           height: '320px',
           borderRadius: '50%',
