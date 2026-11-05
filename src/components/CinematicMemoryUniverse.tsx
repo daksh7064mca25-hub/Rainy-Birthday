@@ -202,6 +202,9 @@ export default function CinematicMemoryUniverse({
         paddingTop: '28px',
         paddingBottom: '60px',
         overflow: 'hidden',
+        width: '100%',
+        maxWidth: '100vw',
+        boxSizing: 'border-box',
       }}
     >
       {/* Subtle Ambient Glow */}
@@ -265,6 +268,9 @@ export default function CinematicMemoryUniverse({
           position: 'relative',
           zIndex: 1,
           padding: '0 16px',
+          maxWidth: '100%',
+          overflow: 'hidden',
+          boxSizing: 'border-box',
         }}
       >
         <span
@@ -287,10 +293,13 @@ export default function CinematicMemoryUniverse({
         <h2
           className="gold-gradient-text"
           style={{
-            fontSize: 'clamp(1.65rem, 4.6vw, 2.3rem)',
+            fontSize: 'clamp(1.4rem, 4.4vw, 2.2rem)',
             marginBottom: '6px',
-            lineHeight: 1.2,
+            lineHeight: 1.25,
             fontWeight: 700,
+            maxWidth: '100%',
+            overflowWrap: 'break-word',
+            wordBreak: 'break-word',
           }}
         >
           {title}
@@ -303,39 +312,19 @@ export default function CinematicMemoryUniverse({
             lineHeight: 1.5,
             maxWidth: '520px',
             margin: '0 auto',
+            padding: '0 8px',
+            boxSizing: 'border-box',
           }}
         >
           {subtitle}
         </p>
 
-        {/* Refined Compact Collection Filter Buttons */}
+        {/* Refined Compact Collection Filter Buttons with Mobile Touch Carousel */}
         {collections.length > 0 && (
-          <div
-            style={{
-              display: 'flex',
-              gap: '6px',
-              justifyContent: 'center',
-              flexWrap: 'wrap',
-              marginTop: '12px',
-            }}
-          >
+          <div className="category-filter-bar">
             <button
               onClick={() => setActiveFilter('all')}
-              style={{
-                padding: '4px 12px',
-                borderRadius: '9999px',
-                fontSize: '0.74rem',
-                border:
-                  activeFilter === 'all'
-                    ? '1px solid var(--color-gold)'
-                    : '1px solid rgba(243, 207, 122, 0.22)',
-                background:
-                  activeFilter === 'all' ? 'rgba(243, 207, 122, 0.2)' : 'rgba(18, 14, 26, 0.7)',
-                color: activeFilter === 'all' ? 'var(--color-gold)' : 'var(--text-muted)',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                fontWeight: activeFilter === 'all' ? 600 : 400,
-              }}
+              className={`category-pill ${activeFilter === 'all' ? 'active' : ''}`}
             >
               All Moments ({publishedMemories.length})
             </button>
@@ -345,21 +334,7 @@ export default function CinematicMemoryUniverse({
                 <button
                   key={col}
                   onClick={() => setActiveFilter(col)}
-                  style={{
-                    padding: '4px 12px',
-                    borderRadius: '9999px',
-                    fontSize: '0.74rem',
-                    border:
-                      activeFilter === col
-                        ? '1px solid var(--color-gold)'
-                        : '1px solid rgba(243, 207, 122, 0.22)',
-                    background:
-                      activeFilter === col ? 'rgba(243, 207, 122, 0.2)' : 'rgba(18, 14, 26, 0.7)',
-                    color: activeFilter === col ? 'var(--color-gold)' : 'var(--text-muted)',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    fontWeight: activeFilter === col ? 600 : 400,
-                  }}
+                  className={`category-pill ${activeFilter === col ? 'active' : ''}`}
                 >
                   {col} ({count})
                 </button>
@@ -375,8 +350,11 @@ export default function CinematicMemoryUniverse({
           position: 'relative',
           zIndex: 1,
           maxWidth: '1420px',
+          width: '100%',
           margin: '0 auto',
           padding: '0 8px',
+          boxSizing: 'border-box',
+          overflow: 'hidden',
         }}
       >
         {filteredMemories.length === 0 ? (
@@ -887,7 +865,14 @@ const CollageTile = React.memo(function CollageTile({
   onOpenPhoto,
   onOpenVideo,
 }: CollageTileProps) {
+  const tileRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  // Eagerly activate first 8 cards (above the fold)
+  const [isInView, setIsInView] = useState(index < 8);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [hasLocalError, setHasLocalError] = useState(false);
+
   const isVideo =
     memory.mediaType === 'video' ||
     isVideoUrl(memory.videoUrl) ||
@@ -897,6 +882,37 @@ const CollageTile = React.memo(function CollageTile({
   const videoUrl = getPlayableVideoUrl(memory);
   const mediaSrc = isVideo ? (posterUrl || memory.imageUrl) : memory.imageUrl;
 
+  // IntersectionObserver for below-the-fold cards (index >= 8)
+  useEffect(() => {
+    if (index < 8 || isInView) return;
+
+    if (typeof IntersectionObserver !== 'undefined' && tileRef.current) {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              setIsInView(true);
+              observer.disconnect();
+            }
+          });
+        },
+        { rootMargin: '350px 0px 350px 0px' }
+      );
+
+      observer.observe(tileRef.current);
+      return () => observer.disconnect();
+    } else {
+      setIsInView(true);
+    }
+  }, [index, isInView]);
+
+  // Synchronously detect already-cached images from browser disk/memory cache
+  useEffect(() => {
+    if (imgRef.current && imgRef.current.complete && imgRef.current.naturalWidth > 0) {
+      setIsLoaded(true);
+    }
+  }, [isInView, mediaSrc]);
+
   const handleClick = () => {
     if (isVideo) {
       onOpenVideo();
@@ -905,8 +921,11 @@ const CollageTile = React.memo(function CollageTile({
     }
   };
 
+  const isFailed = hasError || hasLocalError;
+
   return (
     <motion.div
+      ref={tileRef}
       initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 10 }}
       whileInView={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
       viewport={{ once: true, margin: '-20px' }}
@@ -922,14 +941,14 @@ const CollageTile = React.memo(function CollageTile({
         }
       }}
     >
-      {/* Skeleton Shimmer while loading */}
-      {!isLoaded && !hasError && (
+      {/* Skeleton Shimmer while loading — sits strictly behind the media */}
+      {!isLoaded && !isFailed && (
         <div className="collage-tile-skeleton" aria-hidden="true">
           <div className="collage-tile-skeleton-shimmer" />
         </div>
       )}
 
-      {hasError ? (
+      {isFailed ? (
         isVideo ? (
           <div className="collage-video-fallback">
             <div className="collage-video-fallback-icon">
@@ -950,16 +969,23 @@ const CollageTile = React.memo(function CollageTile({
           {mediaSrc && !isVideoUrl(mediaSrc) ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
-              src={mediaSrc}
+              ref={imgRef}
+              src={isInView ? mediaSrc : undefined}
               alt={memory.title}
-              loading={index < 4 ? 'eager' : 'lazy'}
-              decoding="async"
+              loading={index < 8 ? 'eager' : 'lazy'}
+              decoding={index < 8 ? 'sync' : 'async'}
               onLoad={() => setIsLoaded(true)}
               onError={() => {
+                console.warn(`[Gallery] Poster load error for ${memory.id}: ${mediaSrc}`);
                 setIsLoaded(true);
+                setHasLocalError(true);
                 onError();
               }}
-              className={`collage-tile-media ${isLoaded ? 'is-loaded' : 'is-loading'}`}
+              className="collage-tile-media"
+              style={{
+                opacity: isLoaded ? 1 : 0.9,
+                transition: 'opacity 0.25s ease',
+              }}
             />
           ) : (
             <div className="collage-video-fallback">
@@ -986,16 +1012,23 @@ const CollageTile = React.memo(function CollageTile({
       ) : (
         /* eslint-disable-next-line @next/next/no-img-element */
         <img
-          src={mediaSrc}
+          ref={imgRef}
+          src={isInView ? mediaSrc : undefined}
           alt={memory.title}
-          loading={index < 4 ? 'eager' : 'lazy'}
-          decoding="async"
+          loading={index < 8 ? 'eager' : 'lazy'}
+          decoding={index < 8 ? 'sync' : 'async'}
           onLoad={() => setIsLoaded(true)}
           onError={() => {
+            console.warn(`[Gallery] Image load error for ${memory.id}: ${mediaSrc}`);
             setIsLoaded(true);
+            setHasLocalError(true);
             onError();
           }}
-          className={`collage-tile-media ${isLoaded ? 'is-loaded' : 'is-loading'}`}
+          className="collage-tile-media"
+          style={{
+            opacity: isLoaded ? 1 : 0.9,
+            transition: 'opacity 0.25s ease',
+          }}
         />
       )}
 

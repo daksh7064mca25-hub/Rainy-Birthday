@@ -90,6 +90,10 @@ export default function HomePage() {
           opacity: hasEntered ? 1 : 0.85,
           transition: 'opacity 0.6s ease',
           paddingTop: '40px',
+          width: '100%',
+          maxWidth: '100vw',
+          overflowX: 'hidden',
+          boxSizing: 'border-box',
         }}
       >
         {/* Chapter 2: Cinematic Memory Universe Gallery */}
