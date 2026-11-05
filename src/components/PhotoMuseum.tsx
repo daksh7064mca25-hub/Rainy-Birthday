@@ -115,11 +115,11 @@ export default function PhotoMuseum({ title, subtitle, memories }: PhotoMuseumPr
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))',
-          gap: '24px',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
+          gap: 'clamp(14px, 3vw, 24px)',
           maxWidth: '960px',
           margin: '0 auto',
-          padding: '0 16px',
+          padding: '0 14px',
         }}
       >
         {curatedStoryMemories.map((memory, index) => {
@@ -128,7 +128,7 @@ export default function PhotoMuseum({ title, subtitle, memories }: PhotoMuseumPr
             isVideoUrl(memory.videoUrl) ||
             isVideoUrl(memory.imageUrl);
           const poster = getValidPosterUrl(memory);
-          const videoSrc = getPlayableVideoUrl(memory);
+          const mediaSrc = isVideo ? (poster || memory.imageUrl) : memory.imageUrl;
 
           return (
             <motion.article
@@ -173,10 +173,10 @@ export default function PhotoMuseum({ title, subtitle, memories }: PhotoMuseumPr
               >
                 {isVideo ? (
                   <>
-                    {poster ? (
+                    {mediaSrc && !isVideoUrl(mediaSrc) ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
-                        src={poster}
+                        src={mediaSrc}
                         alt={memory.title}
                         loading="lazy"
                         decoding="async"
@@ -185,20 +185,6 @@ export default function PhotoMuseum({ title, subtitle, memories }: PhotoMuseumPr
                           height: '100%',
                           objectFit: 'cover',
                           display: 'block',
-                        }}
-                      />
-                    ) : videoSrc ? (
-                      <video
-                        src={`${videoSrc}#t=0.5`}
-                        preload="none"
-                        muted
-                        playsInline
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                          display: 'block',
-                          pointerEvents: 'none',
                         }}
                       />
                     ) : (
@@ -490,8 +476,9 @@ export default function PhotoMuseum({ title, subtitle, memories }: PhotoMuseumPr
                     src={getPlayableVideoUrl(selectedMemory) || selectedMemory.videoUrl || selectedMemory.imageUrl}
                     poster={getValidPosterUrl(selectedMemory) || undefined}
                     controls
-                    autoPlay
                     playsInline
+                    {...{ 'webkit-playsinline': 'true' }}
+                    preload="metadata"
                     style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000000' }}
                   />
                 ) : (

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence, useInView } from 'framer-motion';
 import { MemoryItem } from '@/types/content';
+import { getValidPosterUrl } from '@/lib/videoUtils';
 import { Play, Pause, RotateCcw, FastForward, Heart, Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -136,7 +137,7 @@ export default function FinalReveal({
               <AnimatePresence mode="wait">
                 <motion.img
                   key={currentMemory?.id || currentIndex}
-                  src={currentMemory?.imageUrl}
+                  src={getValidPosterUrl(currentMemory) || currentMemory?.imageUrl}
                   alt={currentMemory?.title}
                   initial={{ opacity: 0, scale: 1.05 }}
                   animate={{ opacity: 1, scale: 1 }}

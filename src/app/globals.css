@@ -254,17 +254,24 @@ h1, h2, h3, h4, .font-serif {
   left: 50%;
   transform: translateX(-50%);
   z-index: 90;
-  background: rgba(15, 12, 25, 0.88);
+  background: rgba(15, 12, 25, 0.92);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(243, 207, 122, 0.25);
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(226, 88, 127, 0.15);
   border-radius: var(--radius-full);
-  padding: 6px 12px;
+  padding: 6px 10px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  max-width: calc(100vw - 32px);
+  gap: 6px;
+  max-width: calc(100vw - 20px);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.bottom-chapter-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .chapter-dot {
@@ -453,73 +460,126 @@ h1, h2, h3, h4, .font-serif {
 
 /* ==========================================================================
    DENSE CINEMATIC PHOTO & VIDEO COLLAGE (CHAPTER 2)
+   Calculated Multi-Column Flex Masonry — 100% WebKit & iOS Safari Stable
    ========================================================================== */
-.dense-collage-wall {
-  column-count: 2;
-  column-gap: 6px;
+.dense-collage-wall,
+.masonry-gallery-grid {
+  display: flex;
   width: 100%;
+  gap: 8px;
+  box-sizing: border-box;
+  align-items: flex-start;
 }
 
-@media (min-width: 480px) {
-  .dense-collage-wall {
-    column-count: 3;
-    column-gap: 8px;
+@media (min-width: 640px) {
+  .dense-collage-wall,
+  .masonry-gallery-grid {
+    gap: 12px;
   }
 }
 
-@media (min-width: 768px) {
-  .dense-collage-wall {
-    column-count: 4;
-    column-gap: 10px;
+@media (min-width: 1024px) {
+  .dense-collage-wall,
+  .masonry-gallery-grid {
+    gap: 14px;
   }
 }
 
-@media (min-width: 1100px) {
-  .dense-collage-wall {
-    column-count: 5;
-    column-gap: 10px;
+.dense-collage-column,
+.masonry-gallery-column {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+}
+
+@media (min-width: 640px) {
+  .dense-collage-column,
+  .masonry-gallery-column {
+    gap: 12px;
   }
 }
 
-@media (min-width: 1440px) {
-  .dense-collage-wall {
-    column-count: 6;
-    column-gap: 12px;
+@media (min-width: 1024px) {
+  .dense-collage-column,
+  .masonry-gallery-column {
+    gap: 14px;
   }
 }
 
 /* Individual Collage Tile */
 .collage-tile {
-  break-inside: avoid;
-  margin-bottom: 6px;
+  width: 100%;
   position: relative;
-  border-radius: 9px;
+  border-radius: 12px;
   overflow: hidden;
   cursor: pointer;
   background: #110e1a;
   border: 1px solid rgba(243, 207, 122, 0.22);
   transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s ease, border-color 0.28s ease;
   user-select: none;
-  content-visibility: auto;
-  contain-intrinsic-size: 200px 280px;
+  box-sizing: border-box;
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 @media (min-width: 640px) {
   .collage-tile {
-    margin-bottom: 10px;
-    border-radius: 11px;
+    border-radius: 14px;
   }
 }
 
 .collage-tile:hover {
-  transform: scale(1.025);
+  transform: scale(1.02) translateZ(0);
   border-color: rgba(243, 207, 122, 0.65);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.8), 0 0 20px rgba(243, 207, 122, 0.25);
-  z-index: 10;
+  z-index: 5;
 }
 
 .collage-tile:active {
-  transform: scale(0.985);
+  transform: scale(0.985) translateZ(0);
+}
+
+@media (hover: none) {
+  .collage-tile:hover {
+    transform: none;
+    box-shadow: none;
+  }
+  .collage-tile:active {
+    transform: scale(0.98) translateZ(0);
+  }
+}
+
+/* Shimmer Skeleton Placeholder for Collage Tiles */
+.collage-tile-skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #181126 0%, #0e0a17 50%, #1a1226 100%);
+  overflow: hidden;
+  z-index: 1;
+}
+
+.collage-tile-skeleton-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(243, 207, 122, 0.09) 45%,
+    rgba(226, 88, 127, 0.08) 55%,
+    transparent 100%
+  );
+  animation: collage-shimmer 1.8s infinite;
+  transform: translateX(-100%);
+}
+
+@keyframes collage-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 /* Natural aspect ratios for organic Pinterest mosaic */
@@ -549,7 +609,15 @@ h1, h2, h3, h4, .font-serif {
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.35s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.collage-tile-media.is-loading {
+  opacity: 0;
+}
+
+.collage-tile-media.is-loaded {
+  opacity: 1;
 }
 
 .collage-tile:hover .collage-tile-media {

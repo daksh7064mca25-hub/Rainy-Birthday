@@ -35,6 +35,38 @@ const DRIFTING_PARTICLES = [
   { top: '88%', left: '10%', size: 3.5, duration: 4.2, delay: 1.8 },
 ];
 
+/**
+ * Mobile-first responsive column count calculator:
+ * - Mobile (< 640px): strictly 2 columns (clean Pinterest 2-col on iPhone/Android)
+ * - Tablet (640px - 1023px): 3 columns
+ * - Desktop (1024px - 1439px): 4 columns
+ * - Large screens (>= 1440px): 5 columns
+ */
+function useResponsiveColumns(): number {
+  const [columns, setColumns] = useState<number>(2);
+
+  useEffect(() => {
+    const updateColumns = () => {
+      const width = window.innerWidth;
+      if (width < 640) {
+        setColumns(2);
+      } else if (width < 1024) {
+        setColumns(3);
+      } else if (width < 1440) {
+        setColumns(4);
+      } else {
+        setColumns(5);
+      }
+    };
+
+    updateColumns();
+    window.addEventListener('resize', updateColumns);
+    return () => window.removeEventListener('resize', updateColumns);
+  }, []);
+
+  return columns;
+}
+
 export default function CinematicMemoryUniverse({
   title = 'Every Little Moment, Forever Ours',
   subtitle = 'A thousand little moments, countless reasons to smile, and a lifetime of memories I want to keep with you.',
@@ -73,6 +105,31 @@ export default function CinematicMemoryUniverse({
     if (activeFilter === 'all') return publishedMemories;
     return publishedMemories.filter((m) => m.collection === activeFilter);
   }, [publishedMemories, activeFilter]);
+
+  // Video element ref and autoplay handler with iOS Safari compatibility
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const columnCount = useResponsiveColumns();
+
+  // Distribute memories across columns in round-robin fashion for balanced masonry
+  const masonryColumns = useMemo(() => {
+    const cols: MemoryItem[][] = Array.from({ length: columnCount }, () => []);
+    filteredMemories.forEach((mem, idx) => {
+      cols[idx % columnCount].push(mem);
+    });
+    return cols;
+  }, [filteredMemories, columnCount]);
+
+  useEffect(() => {
+    if (selectedVideo && videoRef.current) {
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          // Handled gracefully: iOS Safari will show controls for user tap
+          console.log('Video autoplay prevented on iOS Safari:', err);
+        });
+      }
+    }
+  }, [selectedVideo]);
 
   // Lock scroll when lightbox or video player is active
   useEffect(() => {
@@ -339,18 +396,25 @@ export default function CinematicMemoryUniverse({
             </p>
           </div>
         ) : (
-          <div className="dense-collage-wall">
-            {filteredMemories.map((mem, index) => (
-              <CollageTile
-                key={mem.id}
-                memory={mem}
-                index={index}
-                shouldReduceMotion={shouldReduceMotion}
-                hasError={!!imageErrors[mem.id]}
-                onError={() => setImageErrors((prev) => ({ ...prev, [mem.id]: true }))}
-                onOpenPhoto={() => setSelectedPhoto(mem)}
-                onOpenVideo={() => setSelectedVideo(mem)}
-              />
+          <div className="masonry-gallery-grid">
+            {masonryColumns.map((colMemories, colIdx) => (
+              <div key={colIdx} className="masonry-gallery-column">
+                {colMemories.map((mem) => {
+                  const originalIndex = filteredMemories.findIndex((m) => m.id === mem.id);
+                  return (
+                    <CollageTile
+                      key={mem.id}
+                      memory={mem}
+                      index={originalIndex >= 0 ? originalIndex : 0}
+                      shouldReduceMotion={shouldReduceMotion}
+                      hasError={!!imageErrors[mem.id]}
+                      onError={() => setImageErrors((prev) => ({ ...prev, [mem.id]: true }))}
+                      onOpenPhoto={() => setSelectedPhoto(mem)}
+                      onOpenVideo={() => setSelectedVideo(mem)}
+                    />
+                  );
+                })}
+              </div>
             ))}
           </div>
         )}
@@ -736,16 +800,19 @@ export default function CinematicMemoryUniverse({
               {/* Video Player */}
               <div style={{ width: '100%', background: '#000000', maxHeight: '62vh', overflow: 'hidden', position: 'relative' }}>
                 <video
+                  ref={videoRef}
                   src={getPlayableVideoUrl(selectedVideo) || selectedVideo.videoUrl || selectedVideo.imageUrl}
                   poster={getValidPosterUrl(selectedVideo) || undefined}
                   controls
-                  autoPlay
                   playsInline
+                  {...{ 'webkit-playsinline': 'true' }}
+                  preload="metadata"
                   style={{
                     width: '100%',
                     maxHeight: '62vh',
                     display: 'block',
                     margin: '0 auto',
+                    background: '#000000',
                   }}
                 />
               </div>
@@ -820,6 +887,7 @@ const CollageTile = React.memo(function CollageTile({
   onOpenPhoto,
   onOpenVideo,
 }: CollageTileProps) {
+  const [isLoaded, setIsLoaded] = useState(false);
   const isVideo =
     memory.mediaType === 'video' ||
     isVideoUrl(memory.videoUrl) ||
@@ -827,9 +895,7 @@ const CollageTile = React.memo(function CollageTile({
   const aspectClass = getAspectClass(memory, index);
   const posterUrl = getValidPosterUrl(memory);
   const videoUrl = getPlayableVideoUrl(memory);
-
-  // Subtle natural tilt for occasional tiles (-1.2deg to +1.2deg)
-  const rotationDeg = !shouldReduceMotion && (index % 7 === 1 ? -1.2 : index % 7 === 4 ? 1.2 : 0);
+  const mediaSrc = isVideo ? (posterUrl || memory.imageUrl) : memory.imageUrl;
 
   const handleClick = () => {
     if (isVideo) {
@@ -841,14 +907,11 @@ const CollageTile = React.memo(function CollageTile({
 
   return (
     <motion.div
-      initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: 12 }}
+      initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 10 }}
       whileInView={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
       viewport={{ once: true, margin: '-20px' }}
       transition={{ duration: 0.38, delay: (index % 6) * 0.04, ease: [0.16, 1, 0.3, 1] }}
       className={`collage-tile ${aspectClass}`}
-      style={{
-        transform: rotationDeg ? `rotate(${rotationDeg}deg)` : undefined,
-      }}
       onClick={handleClick}
       role="button"
       tabIndex={0}
@@ -859,6 +922,13 @@ const CollageTile = React.memo(function CollageTile({
         }
       }}
     >
+      {/* Skeleton Shimmer while loading */}
+      {!isLoaded && !hasError && (
+        <div className="collage-tile-skeleton" aria-hidden="true">
+          <div className="collage-tile-skeleton-shimmer" />
+        </div>
+      )}
+
       {hasError ? (
         isVideo ? (
           <div className="collage-video-fallback">
@@ -877,31 +947,19 @@ const CollageTile = React.memo(function CollageTile({
         )
       ) : isVideo ? (
         <>
-          {posterUrl ? (
+          {mediaSrc && !isVideoUrl(mediaSrc) ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
-              src={posterUrl}
+              src={mediaSrc}
               alt={memory.title}
-              loading="lazy"
+              loading={index < 4 ? 'eager' : 'lazy'}
               decoding="async"
-              onError={onError}
-              className="collage-tile-media"
-            />
-          ) : videoUrl ? (
-            <video
-              src={`${videoUrl}#t=0.5`}
-              preload="none"
-              muted
-              playsInline
-              onError={onError}
-              className="collage-tile-media"
-              style={{
-                objectFit: 'cover',
-                width: '100%',
-                height: '100%',
-                pointerEvents: 'none',
-                display: 'block',
+              onLoad={() => setIsLoaded(true)}
+              onError={() => {
+                setIsLoaded(true);
+                onError();
               }}
+              className={`collage-tile-media ${isLoaded ? 'is-loaded' : 'is-loading'}`}
             />
           ) : (
             <div className="collage-video-fallback">
@@ -928,12 +986,16 @@ const CollageTile = React.memo(function CollageTile({
       ) : (
         /* eslint-disable-next-line @next/next/no-img-element */
         <img
-          src={memory.imageUrl}
+          src={mediaSrc}
           alt={memory.title}
-          loading="lazy"
+          loading={index < 4 ? 'eager' : 'lazy'}
           decoding="async"
-          onError={onError}
-          className="collage-tile-media"
+          onLoad={() => setIsLoaded(true)}
+          onError={() => {
+            setIsLoaded(true);
+            onError();
+          }}
+          className={`collage-tile-media ${isLoaded ? 'is-loaded' : 'is-loading'}`}
         />
       )}
 

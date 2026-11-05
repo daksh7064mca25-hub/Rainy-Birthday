@@ -14,19 +14,20 @@ export function isVideoUrl(url?: string | null): boolean {
  * Returns a valid static image poster URL for a memory item, or null if only video URLs are present.
  * NEVER returns a video file (.mp4, etc.) as an image source.
  */
-export function getValidPosterUrl(memory: {
+export function getValidPosterUrl(memory?: {
   posterUrl?: string;
   thumbnailUrl?: string;
   imageUrl?: string;
   mediaType?: string;
-}): string | null {
+} | null): string | null {
+  if (!memory) return null;
   if (memory.posterUrl && !isVideoUrl(memory.posterUrl)) {
     return memory.posterUrl;
   }
   if (memory.thumbnailUrl && !isVideoUrl(memory.thumbnailUrl)) {
     return memory.thumbnailUrl;
   }
-  if (memory.imageUrl && !isVideoUrl(memory.imageUrl) && memory.mediaType !== 'video') {
+  if (memory.imageUrl && !isVideoUrl(memory.imageUrl)) {
     return memory.imageUrl;
   }
   return null;
@@ -35,11 +36,12 @@ export function getValidPosterUrl(memory: {
 /**
  * Resolves the playable video URL for a memory item.
  */
-export function getPlayableVideoUrl(memory: {
+export function getPlayableVideoUrl(memory?: {
   videoUrl?: string;
   imageUrl?: string;
   mediaType?: string;
-}): string | null {
+} | null): string | null {
+  if (!memory) return null;
   if (memory.videoUrl && (isVideoUrl(memory.videoUrl) || memory.mediaType === 'video')) {
     return memory.videoUrl;
   }
