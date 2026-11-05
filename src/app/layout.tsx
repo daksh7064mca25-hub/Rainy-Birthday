@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Aether Love — Happy Birthday Rainy',
+  title: 'Happy Birthday Rainyyyyyy',
   description: 'A deeply personal romantic universe crafted with infinite love for Rainy on her birthday.',
   openGraph: {
     title: 'Aether Love — For My Starlight Rainy',
